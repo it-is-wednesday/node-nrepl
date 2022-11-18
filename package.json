@@ -1,5 +1,5 @@
 {
-  "name": "nodejs-nrepl",
+  "name": "node-nrepl",
   "version": "1.0.0",
   "description": "",
   "scripts": {
@@ -14,6 +14,7 @@
     "nodemon": "^2.0.20"
   },
   "dependencies": {
-    "bencode": "^2.0.3"
+    "bencode": "^2.0.3",
+    "dayjs": "^1.11.6"
   }
 }
