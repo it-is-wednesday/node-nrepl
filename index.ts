@@ -1,6 +1,8 @@
 import { createServer, Socket } from "net";
 import { randomUUID } from "crypto";
 import * as bencode from "bencode";
+import * as ts from "typescript";
+import * as flatted from "flatted";
 import dayjs from "dayjs";
 
 type Operation = "clone" | "describe" | "eval";
@@ -17,9 +19,26 @@ interface OpEval extends Message {
   op: "eval";
 }
 
+const state = {};
+
 function eval_(input: OpEval) {
-  const evaldValue = Function(`"use strict";return (${input.code})`)();
-  const prettyPrinted = JSON.stringify(evaldValue, null, 2);
+  const code = ts.transpile(input.code).trim();
+  let valueToSend = null;
+
+  if (
+    code.startsWith("const") ||
+    code.startsWith("let") ||
+    code.startsWith("var")
+  ) {
+    // is statement
+    const globalized = code.replace(/(const|let) */, "global.");
+    console.log(globalized);
+    eval(globalized);
+  } else {
+    // expression
+    valueToSend = eval(code);
+  }
+  const prettyPrinted = flatted.stringify(valueToSend, null, 2);
   return [{ value: prettyPrinted }, { status: ["done"] }];
 }
 
@@ -72,11 +91,6 @@ const server = createServer((socket: Socket) => {
       } else {
         msg["session"] = sessionId;
       }
-
-      console.log("input:");
-      console.log(clientMsg);
-      console.log("output:");
-      console.log(msg);
 
       socket.write(bencode.encode(msg));
     }

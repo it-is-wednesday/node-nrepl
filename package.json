@@ -3,18 +3,19 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "watch": "nodemon --exec esno index.ts"
+    "watch": "esno watch index.ts"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/bencode": "^2.0.1",
     "@types/node": "^18.11.9",
-    "esno": "^0.16.3",
-    "nodemon": "^2.0.20"
+    "esno": "^0.16.3"
   },
   "dependencies": {
     "bencode": "^2.0.3",
-    "dayjs": "^1.11.6"
+    "dayjs": "^1.11.6",
+    "flatted": "^3.2.7",
+    "typescript": "^4.9.3"
   }
 }
