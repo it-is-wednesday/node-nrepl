@@ -6,12 +6,12 @@ import * as bencode from "bencode";
 import * as tsNode from "ts-node";
 import * as stream from "node:stream";
 
-type Operation = "clone" | "describe" | "eval";
+const operations = { clone: {}, describe: {}, eval: {} };
 
 interface Message {
   id: string;
   session?: string;
-  op: Operation;
+  op: keyof typeof operations;
 }
 
 interface OpEval extends Message {
@@ -20,47 +20,52 @@ interface OpEval extends Message {
   op: "eval";
 }
 
-function eval_(input: OpEval, repl: tsNode.ReplService) {
-  return [
-    { value: nodeUtil.inspect(repl.evalCode(input.code)) },
-    { status: ["done"] },
-  ];
+interface OpClone extends Message {
+  op: "clone";
 }
 
-function describe() {
-  const ops = {};
-  // fill ops map with empty maps as values, I'm not sure why that's the standard
-  for (const op of Object.keys(opIndex)) {
-    ops[op] = {};
-  }
-
-  return {
-    aux: {},
-    ops,
-  };
+interface OpDescribe extends Message {
+  op: "describe";
 }
 
-function clone() {
-  return {
-    "new-session": randomUUID(),
-    "time-stamp": dayjs().format("YYYY-MM-DD hh:mm:ss.SSS000000"),
-    status: ["done"],
-  };
-}
+type Op = OpEval | OpClone | OpDescribe;
 
-type opFunc = (input: Message, tsNodeRepl?: tsNode.ReplService) => any | any[];
+const server = createServer((socket: Socket) => {
+  let sessionId: string;
+  const repl = makeRepl();
 
-const opIndex: { [idx: string]: opFunc } = {
-  clone,
-  describe,
-  eval: eval_,
-  // TODO catchall
-};
+  socket.on("data", (socketData: Buffer) => {
+    const clientMsg: Op = bencode.decode(socketData, "utf8");
+
+    // send bencode to nREPL client, filling request ID and session ID if needed
+    const send = (toSend: any) => {
+      const enriched = { ...toSend, id: clientMsg.id, session: sessionId };
+      return socket.write(bencode.encode(enriched));
+    };
+
+    switch (clientMsg.op) {
+      case "clone":
+        send({
+          "new-session": randomUUID(),
+          "time-stamp": dayjs().format("YYYY-MM-DD hh:mm:ss.SSS000000"),
+          status: ["done"],
+        });
+        break;
+      case "describe":
+        send({ aux: {}, ops: operations });
+        break;
+      case "eval":
+        send({ value: nodeUtil.inspect(repl.evalCode(clientMsg.code)) });
+        send({ status: ["done"] });
+        break;
+    }
+  });
+});
 
 function makeRepl(): tsNode.ReplService {
   const tsNodeInStream = new stream.Readable({ read: function () {} });
   const tsNodeOutStream = new stream.Writable({
-    write: function (chunk, encoding, callback) {
+    write: function (chunk, _encoding, callback) {
       console.log(chunk.toString());
       callback();
     },
@@ -78,31 +83,5 @@ function makeRepl(): tsNode.ReplService {
   repl.start();
   return repl;
 }
-
-const server = createServer((socket: Socket) => {
-  let sessionId: string;
-  const repl = makeRepl();
-
-  socket.on("data", (socketData: Buffer) => {
-    const clientMsg = bencode.decode(socketData, "utf8");
-
-    let msgsToSend = opIndex[clientMsg["op"]](clientMsg, repl);
-    if (!Array.isArray(msgsToSend)) {
-      msgsToSend = [msgsToSend];
-    }
-
-    for (let msg of msgsToSend) {
-      msg["id"] = clientMsg["id"];
-
-      if (msg["new-session"]) {
-        sessionId = msg["new-session"];
-      } else {
-        msg["session"] = sessionId;
-      }
-
-      socket.write(bencode.encode(msg));
-    }
-  });
-});
 
 server.listen(1337, "127.0.0.1");
