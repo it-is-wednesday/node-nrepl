@@ -62,14 +62,13 @@ const server = createServer((socket: Socket) => {
   });
 });
 
+/**
+ * Returns a ts-node REPL allowing redeclarations
+ */
 function makeRepl(): tsNode.ReplService {
-  const tsNodeInStream = new stream.Readable({ read: function () {} });
-  const tsNodeOutStream = new stream.Writable({
-    write: function (chunk, _encoding, callback) {
-      console.log(chunk.toString());
-      callback();
-    },
-  });
+  const tsNodeInStream = new stream.Readable({ read: () => {} });
+  // it only writes the prompt ">", so I think we can peacefully discard it
+  const tsNodeOutStream = new stream.Writable({ write: () => {} });
   const repl = tsNode.createRepl({
     stdin: tsNodeInStream,
     stdout: tsNodeOutStream,
