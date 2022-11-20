@@ -1,9 +1,10 @@
 import { createServer, Socket } from "net";
 import { randomUUID } from "crypto";
-import * as bencode from "bencode";
-import * as ts from "typescript";
-import * as flatted from "flatted";
 import dayjs from "dayjs";
+import * as nodeUtil from "util";
+import * as bencode from "bencode";
+import * as tsNode from "ts-node";
+import * as stream from "node:stream";
 
 type Operation = "clone" | "describe" | "eval";
 
@@ -19,27 +20,11 @@ interface OpEval extends Message {
   op: "eval";
 }
 
-const state = {};
-
-function eval_(input: OpEval) {
-  const code = ts.transpile(input.code).trim();
-  let valueToSend = null;
-
-  if (
-    code.startsWith("const") ||
-    code.startsWith("let") ||
-    code.startsWith("var")
-  ) {
-    // is statement
-    const globalized = code.replace(/(const|let) */, "global.");
-    console.log(globalized);
-    eval(globalized);
-  } else {
-    // expression
-    valueToSend = eval(code);
-  }
-  const prettyPrinted = flatted.stringify(valueToSend, null, 2);
-  return [{ value: prettyPrinted }, { status: ["done"] }];
+function eval_(input: OpEval, repl: tsNode.ReplService) {
+  return [
+    { value: nodeUtil.inspect(repl.evalCode(input.code)) },
+    { status: ["done"] },
+  ];
 }
 
 function describe() {
@@ -63,7 +48,7 @@ function clone() {
   };
 }
 
-type opFunc = (nreplClientInput: Message) => any | any[];
+type opFunc = (input: Message, tsNodeRepl?: tsNode.ReplService) => any | any[];
 
 const opIndex: { [idx: string]: opFunc } = {
   clone,
@@ -72,13 +57,36 @@ const opIndex: { [idx: string]: opFunc } = {
   // TODO catchall
 };
 
+function makeRepl(): tsNode.ReplService {
+  const tsNodeInStream = new stream.Readable({ read: function () {} });
+  const tsNodeOutStream = new stream.Writable({
+    write: function (chunk, encoding, callback) {
+      console.log(chunk.toString());
+      callback();
+    },
+  });
+  const repl = tsNode.createRepl({
+    stdin: tsNodeInStream,
+    stdout: tsNodeOutStream,
+  });
+  const service = tsNode.create({
+    ...repl.evalAwarePartialHost,
+    // lets us redeclare variables freely (even consts!)
+    transpileOnly: true,
+  });
+  repl.setService(service);
+  repl.start();
+  return repl;
+}
+
 const server = createServer((socket: Socket) => {
   let sessionId: string;
+  const repl = makeRepl();
 
   socket.on("data", (socketData: Buffer) => {
     const clientMsg = bencode.decode(socketData, "utf8");
 
-    let msgsToSend = opIndex[clientMsg["op"]](clientMsg);
+    let msgsToSend = opIndex[clientMsg["op"]](clientMsg, repl);
     if (!Array.isArray(msgsToSend)) {
       msgsToSend = [msgsToSend];
     }
