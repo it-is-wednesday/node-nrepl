@@ -6,7 +6,7 @@ import * as bencode from "bencode";
 import * as tsNode from "ts-node";
 import * as stream from "node:stream";
 
-const operations = { clone: {}, describe: {}, eval: {} };
+const operations = { clone: {}, describe: {}, eval: {}, "load-file": {} };
 
 interface Message {
   id: string;
@@ -20,6 +20,14 @@ interface OpEval extends Message {
   op: "eval";
 }
 
+interface OpLoadFile extends Message {
+  op: "load-file";
+  ns: string;
+  file: string;
+  "file-name"?: string;
+  "file-path"?: string;
+}
+
 interface OpClone extends Message {
   op: "clone";
 }
@@ -28,7 +36,7 @@ interface OpDescribe extends Message {
   op: "describe";
 }
 
-type Op = OpEval | OpClone | OpDescribe;
+type Op = OpEval | OpClone | OpDescribe | OpLoadFile;
 
 const server = createServer((socket: Socket) => {
   let sessionId: string;
@@ -58,6 +66,12 @@ const server = createServer((socket: Socket) => {
         send({ value: nodeUtil.inspect(repl.evalCode(clientMsg.code)) });
         send({ status: ["done"] });
         break;
+      case "load-file":
+        send({ value: nodeUtil.inspect(repl.evalCode(clientMsg.file)) });
+        send({ status: ["done"] });
+        break;
+      default:
+        console.error(`Unknown op: '${clientMsg["op"]}'`);
     }
   });
 });
