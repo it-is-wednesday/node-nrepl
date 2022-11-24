@@ -72,6 +72,7 @@ const server = createServer((socket: Socket) => {
         break;
       default:
         console.error(`Unknown op: '${clientMsg["op"]}'`);
+        send({status: ["error", "unknown-op", "done"]});
     }
   });
 });
