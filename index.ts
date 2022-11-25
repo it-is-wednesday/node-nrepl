@@ -39,7 +39,7 @@ interface OpDescribe extends Message {
 type Op = OpEval | OpClone | OpDescribe | OpLoadFile;
 
 const server = createServer((socket: Socket) => {
-  let sessionId: string;
+  const sessionId = randomUUID();
   const repl = makeRepl();
 
   socket.on("data", (socketData: Buffer) => {
@@ -54,7 +54,7 @@ const server = createServer((socket: Socket) => {
     switch (clientMsg.op) {
       case "clone":
         send({
-          "new-session": randomUUID(),
+          "new-session": sessionId,
           "time-stamp": dayjs().format("YYYY-MM-DD hh:mm:ss.SSS000000"),
           status: ["done"],
         });
