@@ -1,3 +1,5 @@
+import type { REPLServer } from "repl";
+import type { AsyncCompleter } from "readline";
 import { createServer, Socket } from "net";
 import { randomUUID } from "crypto";
 import dayjs from "dayjs";
@@ -6,7 +8,14 @@ import * as bencode from "bencode";
 import * as tsNode from "ts-node";
 import * as stream from "node:stream";
 
-const operations = { clone: {}, describe: {}, eval: {}, "load-file": {} };
+const operations = {
+  clone: {},
+  describe: {},
+  eval: {},
+  "load-file": {},
+  complete: {},
+  completions: {},
+};
 
 interface Message {
   id: string;
@@ -28,6 +37,15 @@ interface OpLoadFile extends Message {
   "file-path"?: string;
 }
 
+interface OpComplete extends Message {
+  // supporting both of these definitions:
+  // https://nrepl.org/nrepl/1.0/ops.html#completions
+  // https://docs.cider.mx/cider-nrepl/nrepl-api/ops.html#complete
+  op: "complete" | "completions";
+  prefix: string;
+  ns?: string;
+}
+
 interface OpClone extends Message {
   op: "clone";
 }
@@ -36,7 +54,7 @@ interface OpDescribe extends Message {
   op: "describe";
 }
 
-type Op = OpEval | OpClone | OpDescribe | OpLoadFile;
+type Op = OpEval | OpClone | OpDescribe | OpLoadFile | OpComplete;
 
 const server = createServer((socket: Socket) => {
   const sessionId = randomUUID();
@@ -67,6 +85,24 @@ const server = createServer((socket: Socket) => {
         break;
       case "load-file":
         sendEvalResultsOrErrors(repl.evalCode, send, clientMsg.file);
+        break;
+      case "completions":
+      case "complete":
+        const makeComp = (candidate: string) => ({
+          candidate,
+          ns: null,
+          type: null,
+        });
+        repl.complete(clientMsg.prefix, (err, results) => {
+          if (err) {
+            send({ status: ["error", err] });
+          } else if (results) {
+            send({
+              completions: results[0].map(makeComp),
+              status: ["done"],
+            });
+          }
+        });
         break;
       default:
         console.error(`Unknown op: '${clientMsg["op"]}'`);
@@ -106,7 +142,7 @@ function sendEvalResultsOrErrors(
 /**
  * Returns a ts-node REPL allowing redeclarations
  */
-function makeRepl(): tsNode.ReplService {
+function makeRepl(): tsNode.ReplService & { complete: AsyncCompleter } {
   const tsNodeInStream = new stream.Readable({ read: () => {} });
   // it only writes the prompt ">", so I think we can peacefully discard it
   const tsNodeOutStream = new stream.Writable({ write: () => {} });
@@ -120,8 +156,15 @@ function makeRepl(): tsNode.ReplService {
     transpileOnly: true,
   });
   repl.setService(service);
-  repl.start();
-  return repl;
+
+  // @ts-ignore needed for completions.
+  // `startInternal()` is omitted from the `.d.ts` but still exists in the
+  // emitted JS. For some reason, the only thing that the start() method does
+  // is discard startInternals's return value, which is a REPLServer. So we're
+  // doing this trick here because I don't wanna re-implement completions :P
+  const internalReplServer: REPLServer = repl.startInternal();
+
+  return { ...repl, complete: internalReplServer.completer };
 }
 
 server.listen(1337, "127.0.0.1");
