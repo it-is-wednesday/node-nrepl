@@ -124,7 +124,9 @@ function sendEvalResultsOrErrors(
 ) {
   try {
     sendFunc({ value: nodeUtil.inspect(evalFunc(code)) });
-  } catch (exception) {
+  } catch (_e) {
+    const exception = _e as Error;
+
     // This is non-standard, but seems like clients expect it
     sendFunc({ err: `${exception.toString()}\n` });
 
