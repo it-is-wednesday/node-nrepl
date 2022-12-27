@@ -112,7 +112,8 @@ const server = createServer((socket: Socket) => {
 });
 
 /**
- * OpEval abstraction
+ * OpEval
+ *
  * Evaluate `code` using `evalFunc`, sending its result using `sendFunc`.
  * If any errors were thrown, sends an "err" message and an "eval-error" one.
  * Regardless, sends a "done" status message at the end.
