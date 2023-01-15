@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "watch": "nodemon --exec ts-node index.ts"
+    "watch": "nodemon --exec ts-node -w index.ts index.ts"
   },
   "author": "",
   "license": "ISC",
