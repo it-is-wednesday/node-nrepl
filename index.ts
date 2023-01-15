@@ -8,6 +8,8 @@ import * as bencode from "bencode";
 import * as tsNode from "ts-node";
 import * as stream from "node:stream";
 
+const CIDER_IGNORABLE_CLOJURE_CODE = ["(clojure.core/apply clojure.core/require clojure.main/repl-requires)"];
+
 const operations = {
   clone: {},
   describe: {},
@@ -62,6 +64,7 @@ const server = createServer((socket: Socket) => {
 
   socket.on("data", (socketData: Buffer) => {
     const clientMsg: Op = bencode.decode(socketData, "utf8");
+    console.error(clientMsg);
 
     // send bencode to nREPL client, filling request ID and session ID if needed
     const send = (toSend: any) => {
@@ -79,6 +82,7 @@ const server = createServer((socket: Socket) => {
         break;
       case "describe":
         send({ aux: {}, ops: operations });
+        send({ status: ["done"] });
         break;
       case "eval":
         sendEvalResultsOrErrors(repl.evalCode, send, clientMsg.code);
@@ -123,21 +127,25 @@ function sendEvalResultsOrErrors(
   sendFunc: (toSend: any) => boolean,
   code: string
 ) {
-  try {
-    sendFunc({ value: nodeUtil.inspect(evalFunc(code)) });
-  } catch (_e) {
-    const exception = _e as Error;
+  if (CIDER_IGNORABLE_CLOJURE_CODE.includes(code)) {
+    sendFunc({ value: null });
+  } else {
+    try {
+      sendFunc({ value: nodeUtil.inspect(evalFunc(code)) });
+    } catch (_e) {
+      const exception = _e as Error;
 
-    // This is non-standard, but seems like clients expect it
-    sendFunc({ err: `${exception.toString()}\n` });
+      // This is non-standard, but seems like clients expect it
+      sendFunc({ err: `${exception.toString()}\n` });
 
-    const elaborateError = `${exception.toString()}\n${exception.stack}`;
-    console.error(elaborateError);
-    sendFunc({
-      ex: elaborateError,
-      "root-ex": exception.name,
-      status: ["eval-error"],
-    });
+      const elaborateError = `${exception.toString()}\n${exception.stack}`;
+      console.error(elaborateError);
+      sendFunc({
+        ex: elaborateError,
+        "root-ex": exception.name,
+        status: ["eval-error"],
+      });
+    }
   }
   sendFunc({ status: ["done"] });
 }
