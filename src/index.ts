@@ -58,7 +58,6 @@ type Op = Message &
     | { op: "describe" }
     | { op: "eval"; code: string; ns: string }
     | { op: "load-file"; ns: string; file: string; "file-name"?: string; "file-path"?: string }
-    | { op: "load-file"; ns: string; file: string; "file-name"?: string; "file-path"?: string }
     // supporting both of these definitions:
     // https://nrepl.org/nrepl/1.0/ops.html#completions
     // https://docs.cider.mx/cider-nrepl/nrepl-api/ops.html#complete
