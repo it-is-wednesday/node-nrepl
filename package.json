@@ -13,6 +13,7 @@
     "nodemon": "^2.0.20"
   },
   "dependencies": {
+    "ansi-colors": "^4.1.3",
     "bencode": "^2.0.3",
     "dayjs": "^1.11.6",
     "ts-node": "^10.9.1",

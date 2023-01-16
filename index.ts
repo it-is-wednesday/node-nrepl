@@ -3,7 +3,7 @@ import type { AsyncCompleter } from "readline";
 import { createServer, Socket } from "net";
 import { randomUUID } from "crypto";
 import dayjs from "dayjs";
-import * as colors from "ansi-colors";
+import colors from "ansi-colors";
 import * as nodeUtil from "util";
 import * as bencode from "bencode";
 import * as tsNode from "ts-node";
@@ -12,6 +12,8 @@ import * as stream from "node:stream";
 const CIDER_IGNORABLE_CLOJURE_CODE = [
   "(clojure.core/apply clojure.core/require clojure.main/repl-requires)",
 ];
+
+const debugKeyColor = colors.magenta;
 
 const FAUX_VERSIONS = {
   clojure: { incremental: 1, major: 1, minor: 11, "version-string": "1.11.1" },
@@ -89,13 +91,47 @@ interface OpClasspath extends Message {
 
 type Op = OpEval | OpClone | OpDescribe | OpLoadFile | OpComplete | OpClasspath;
 
-function logMessage(msg: Message, direction: "in" | "out") {
+/**
+ * Generate a psuedo random color from seed, so the same msg ID will always
+ * provide the same color
+ */
+function colorByMsgId(msgId: number): colors.StyleFunction {
+  const c = colors;
+  const cs = [
+    c.red,
+    c.green,
+    c.yellow,
+    c.blue,
+    c.magenta,
+    c.cyan,
+    c.gray,
+    c.redBright,
+    c.greenBright,
+    c.yellowBright,
+    c.blueBright,
+    c.magentaBright,
+    c.cyanBright,
+  ];
+  const index = Math.round(Math.abs(Math.sin(msgId)) * cs.length - 1);
+  return cs[index];
+}
+
+function logMessage(
+  msg: Message,
+  direction: "in" | "out",
+  wrapperColor: colors.StyleFunction
+) {
   const arrow = direction === "out" ? "-->" : "<--";
-  console.log(`(${arrow}`);
-  // slicing the: opening bracket, following newline, closing bracket, and the
-  // preceding newline
-  console.log(nodeUtil.inspect(msg).slice(2, -2));
-  console.log(")");
+  console.log(wrapperColor(`(${arrow}`));
+
+  const longestKey = Math.max(...Object.keys(msg).map((key) => key.length));
+
+  for (const [key, val] of Object.entries(msg)) {
+    const key_ = debugKeyColor(key.padEnd(longestKey + 1));
+    console.log(`  ${key_}${nodeUtil.inspect(val).replaceAll("\n", "\n  ")}`);
+  }
+
+  console.log(wrapperColor(")"));
 }
 
 const server = createServer((socket: Socket) => {
@@ -104,12 +140,12 @@ const server = createServer((socket: Socket) => {
 
   socket.on("data", (socketData: Buffer) => {
     const clientMsg: Op = bencode.decode(socketData, "utf8");
-    console.error(clientMsg);
-    logMessage(clientMsg, "in");
+    logMessage(clientMsg, "in", colorByMsgId(parseInt(clientMsg.id)));
 
     // send bencode to nREPL client, filling request ID and session ID if needed
     const send = (toSend: any) => {
       const enriched = { ...toSend, id: clientMsg.id, session: sessionId };
+      logMessage(enriched, "out", colorByMsgId(parseInt(clientMsg.id)));
       return socket.write(bencode.encode(enriched));
     };
 
