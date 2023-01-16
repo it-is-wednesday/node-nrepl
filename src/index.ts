@@ -35,6 +35,7 @@ const FAUX_AUX = {
   "current-ns": "user",
 };
 
+/** for the `describe` op */
 const operations = {
   clone: {},
   describe: {},
@@ -45,49 +46,26 @@ const operations = {
   classpath: {},
 };
 
-export interface Message {
+export type Message = {
   id: string;
   session?: string;
   op: keyof typeof operations;
-}
+};
 
-interface OpEval extends Message {
-  code: string;
-  ns: string;
-  op: "eval";
-}
-
-interface OpLoadFile extends Message {
-  op: "load-file";
-  ns: string;
-  file: string;
-  "file-name"?: string;
-  "file-path"?: string;
-}
-
-interface OpComplete extends Message {
-  // supporting both of these definitions:
-  // https://nrepl.org/nrepl/1.0/ops.html#completions
-  // https://docs.cider.mx/cider-nrepl/nrepl-api/ops.html#complete
-  op: "complete" | "completions";
-  prefix: string;
-  ns?: string;
-}
-
-interface OpClone extends Message {
-  op: "clone";
-}
-
-interface OpDescribe extends Message {
-  op: "describe";
-}
-
-// we're tricking CIDER!!
-interface OpClasspath extends Message {
-  op: "classpath";
-}
-
-type Op = OpEval | OpClone | OpDescribe | OpLoadFile | OpComplete | OpClasspath;
+type Op = Message &
+  (
+    | { op: "clone" }
+    | { op: "describe" }
+    | { op: "eval"; code: string; ns: string }
+    | { op: "load-file"; ns: string; file: string; "file-name"?: string; "file-path"?: string }
+    | { op: "load-file"; ns: string; file: string; "file-name"?: string; "file-path"?: string }
+    // supporting both of these definitions:
+    // https://nrepl.org/nrepl/1.0/ops.html#completions
+    // https://docs.cider.mx/cider-nrepl/nrepl-api/ops.html#complete
+    | { op: "complete" | "completions"; prefix: string; ns?: string }
+    // we're tricking CIDER!!
+    | { op: "classpath" }
+  );
 
 const server = createServer((socket: Socket) => {
   const sessionId = randomUUID();
