@@ -8,7 +8,31 @@ import * as bencode from "bencode";
 import * as tsNode from "ts-node";
 import * as stream from "node:stream";
 
-const CIDER_IGNORABLE_CLOJURE_CODE = ["(clojure.core/apply clojure.core/require clojure.main/repl-requires)"];
+const CIDER_IGNORABLE_CLOJURE_CODE = [
+  "(clojure.core/apply clojure.core/require clojure.main/repl-requires)",
+];
+
+const FAUX_VERSIONS = {
+  clojure: { incremental: 1, major: 1, minor: 11, "version-string": "1.11.1" },
+  java: {
+    incremental: "1",
+    major: "19",
+    minor: "0",
+    "version-string": "19.0.1",
+  },
+  nrepl: { incremental: 0, major: 1, minor: 0, "version-string": "1.0.0" },
+};
+
+const FAUX_AUX = {
+  "cider-version": {
+    incremental: 6,
+    major: 0,
+    minor: 28,
+    qualifier: null,
+    "version-string": "0.28.6",
+  },
+  "current-ns": "user",
+};
 
 const operations = {
   clone: {},
@@ -17,6 +41,7 @@ const operations = {
   "load-file": {},
   complete: {},
   completions: {},
+  classpath: {},
 };
 
 interface Message {
@@ -56,7 +81,12 @@ interface OpDescribe extends Message {
   op: "describe";
 }
 
-type Op = OpEval | OpClone | OpDescribe | OpLoadFile | OpComplete;
+// we're tricking CIDER!!
+interface OpClasspath extends Message {
+  op: "classpath";
+}
+
+type Op = OpEval | OpClone | OpDescribe | OpLoadFile | OpComplete | OpClasspath;
 
 const server = createServer((socket: Socket) => {
   const sessionId = randomUUID();
@@ -81,8 +111,12 @@ const server = createServer((socket: Socket) => {
         });
         break;
       case "describe":
-        send({ aux: {}, ops: operations });
-        send({ status: ["done"] });
+        send({
+          ops: operations,
+          aux: FAUX_AUX,
+          versions: FAUX_VERSIONS,
+          status: ["done"],
+        });
         break;
       case "eval":
         sendEvalResultsOrErrors(repl.evalCode, send, clientMsg.code);
@@ -107,6 +141,10 @@ const server = createServer((socket: Socket) => {
             });
           }
         });
+        break;
+      case "classpath":
+        send({ classpath: ["thisPathIsNotReal"] });
+        send({ status: ["done"] });
         break;
       default:
         console.error(`Unknown op: '${clientMsg["op"]}'`);
@@ -147,6 +185,7 @@ function sendEvalResultsOrErrors(
       });
     }
   }
+  sendFunc({ ns: "user" });
   sendFunc({ status: ["done"] });
 }
 
