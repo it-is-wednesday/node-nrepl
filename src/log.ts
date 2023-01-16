@@ -31,16 +31,18 @@ function colorByMsgId(msgId: string): c.StyleFunction {
 
 /** Pretty-print the message in a style similar to `nrepl-client`'s `nrepl-log-messages` */
 export function logMsg(msg: Message, direction: "in" | "out") {
-  const wrapperColor = colorByMsgId(msg.id);
+  const printColored = (obj: string) => console.log(colorByMsgId(msg.id).bold(obj));
+
   const arrow = direction === "out" ? "-->" : "<--";
-  console.log(wrapperColor(`(${arrow}`));
+  printColored(`(${arrow}`);
 
   const longestKey = Math.max(...Object.keys(msg).map((key) => key.length));
 
   for (const [key, val] of Object.entries(msg)) {
-    const key_ = debugKeyColor(key.padEnd(longestKey + 1));
-    console.log(`  ${key_}${nodeUtil.inspect(val).replaceAll("\n", "\n  ")}`);
+    const key_ = c.bold(debugKeyColor(key.padEnd(longestKey + 1)));
+    const val_ = nodeUtil.inspect(val, { colors: true }).replaceAll("\n", "\n  ");
+    console.log(`  ${key_}${val_}`);
   }
 
-  console.log(wrapperColor(")"));
+  printColored(")");
 }
