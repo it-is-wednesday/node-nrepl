@@ -3,6 +3,7 @@ import type { AsyncCompleter } from "readline";
 import { createServer, Socket } from "net";
 import { randomUUID } from "crypto";
 import dayjs from "dayjs";
+import * as colors from "ansi-colors";
 import * as nodeUtil from "util";
 import * as bencode from "bencode";
 import * as tsNode from "ts-node";
@@ -88,6 +89,15 @@ interface OpClasspath extends Message {
 
 type Op = OpEval | OpClone | OpDescribe | OpLoadFile | OpComplete | OpClasspath;
 
+function logMessage(msg: Message, direction: "in" | "out") {
+  const arrow = direction === "out" ? "-->" : "<--";
+  console.log(`(${arrow}`);
+  // slicing the: opening bracket, following newline, closing bracket, and the
+  // preceding newline
+  console.log(nodeUtil.inspect(msg).slice(2, -2));
+  console.log(")");
+}
+
 const server = createServer((socket: Socket) => {
   const sessionId = randomUUID();
   const repl = makeRepl();
@@ -95,6 +105,7 @@ const server = createServer((socket: Socket) => {
   socket.on("data", (socketData: Buffer) => {
     const clientMsg: Op = bencode.decode(socketData, "utf8");
     console.error(clientMsg);
+    logMessage(clientMsg, "in");
 
     // send bencode to nREPL client, filling request ID and session ID if needed
     const send = (toSend: any) => {
