@@ -7,6 +7,10 @@ This is an implementation of an [nREPL](https://nrepl.org)
 
 ## Example usage with CIDER
 ``` emacs-lisp
+(require 'typescript-mode)
+(require 'expand-region)
+(require 'js2-mode)
+
 (defun my/typescript-eval-defun ()
   (interactive)
   (save-mark-and-excursion
