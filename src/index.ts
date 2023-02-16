@@ -172,12 +172,10 @@ function sendEvalResultsOrErrors(
  * Returns a ts-node REPL allowing redeclarations
  */
 function makeRepl(): tsNode.ReplService & { complete: AsyncCompleter } {
-  const tsNodeInStream = new stream.Readable({ read: () => {} });
-  // it only writes the prompt ">", so I think we can peacefully discard it
-  const tsNodeOutStream = new stream.Writable({ write: () => {} });
   const repl = tsNode.createRepl({
-    stdin: tsNodeInStream,
-    stdout: tsNodeOutStream,
+    stdin: new stream.Readable({ read: () => {} }),
+    // it only writes the prompt ">", so I think we can peacefully discard it
+    stdout: new stream.Writable({ write: () => {} }),
   });
   const service = tsNode.create({
     ...repl.evalAwarePartialHost,
