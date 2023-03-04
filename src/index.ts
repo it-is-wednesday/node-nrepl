@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import type { REPLServer } from "repl";
 import type { AsyncCompleter } from "readline";
 import { createServer, Socket } from "net";
@@ -195,3 +197,4 @@ function makeRepl(): tsNode.ReplService & { complete: AsyncCompleter } {
 }
 
 server.listen(1337, "127.0.0.1");
+console.log("Listening on port 1337");

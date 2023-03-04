@@ -1,15 +1,21 @@
 {
   "name": "node-nrepl",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "",
+  "main": "dist/index.js",
   "scripts": {
-    "watch": "nodemon --exec ts-node -w src src/index.ts"
+    "watch": "nodemon --exec ts-node -w src src/index.ts",
+    "build": "esbuild src/index.ts --bundle --minify --outfile=dist/index.js --platform=node"
   },
-  "author": "",
+  "author": "Maor Kadosh <me@avocadosh.xyz>",
   "license": "ISC",
+  "bin": {
+    "node-nrepl": "./dist/index.js"
+  },
   "devDependencies": {
     "@types/bencode": "^2.0.1",
     "@types/node": "^18.11.9",
+    "esbuild": "^0.17.11",
     "nodemon": "^2.0.20"
   },
   "dependencies": {
