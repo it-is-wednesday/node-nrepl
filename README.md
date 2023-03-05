@@ -11,27 +11,29 @@ This is an implementation of an [nREPL](https://nrepl.org)
 (require 'expand-region)
 (require 'js2-mode)
 
-(defun my/typescript-eval-defun ()
-  (interactive)
-  (save-mark-and-excursion
-    (er/mark-js-function)
-    (call-interactively #'cider-eval-region)))
+(defmacro my/def-ts-eval (name &rest body)
+  "Create a function evaluating Typescript code in CIDER.
 
-(defun my/typescript-eval-symbol ()
-  (interactive)
-  (save-mark-and-excursion
-    (er/mark-symbol)
-    (call-interactively #'cider-eval-region)))
+NAME will appear at the created function's name
+BODY is a snippet that marks a region of code to be evaluated in CIDER"
+  (declare (indent defun))
+  `(defun ,(intern (format "my/typescript-eval-%s" name)) ()
+     (interactive)
+     (save-mark-and-excursion
+       (progn
+         ,@body
+         (call-interactively #'cider-eval-region)))))
 
-(defun my/typescript-eval-line ()
-  (interactive)
-  (save-mark-and-excursion
-    (beginning-of-line)
-    (set-mark (point))
-    (end-of-line)
-    (call-interactively #'cider-eval-region)))
+(my/def-ts-eval defun (er/mark-js-function))
+(my/def-ts-eval symbol (er/mark-symbol))
+(my/def-ts-eval region (ignore))
+(my/def-ts-eval line
+  (beginning-of-line)
+  (set-mark (point))
+  (end-of-line))
 
-(bind-key "C-c C-d" #'my/typescript-eval-defun typescript-mode-map)
+(bind-key "C-c C-e" #'my/typescript-eval-defun typescript-mode-map)
 (bind-key "C-c C-e" #'my/typescript-eval-symbol typescript-mode-map)
+(bind-key "C-c C-r" #'my/typescript-eval-region typescript-mode-map)
 (bind-key "C-c C-l" #'my/typescript-eval-line typescript-mode-map)
 ```
