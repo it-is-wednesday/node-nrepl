@@ -1,6 +1,6 @@
 import type { Message } from "./index";
 import * as nodeUtil from "util";
-import c from "ansi-colors";
+import c from "./deps/ansi-colors";
 
 const debugKeyColor = c.magenta;
 
